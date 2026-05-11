@@ -201,19 +201,37 @@ int Server::start()
         return e ? e : -1;
     }
     int on = 1;
-    ::setsockopt(static_cast<int>(fd), SOL_SOCKET, SO_REUSEADDR,
-                 reinterpret_cast<const char*>(&on), sizeof(on));
+    ::setsockopt(
+#if defined(_WIN32)
+        static_cast<SOCKET>(fd),
+#else
+        static_cast<int>(fd),
+#endif
+        SOL_SOCKET, SO_REUSEADDR,
+        reinterpret_cast<const char*>(&on), sizeof(on));
 
     sockaddr_in sa{};
     sa.sin_family      = AF_INET;
     sa.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     sa.sin_port        = 0;
-    if (::bind(static_cast<int>(fd), reinterpret_cast<sockaddr*>(&sa), sizeof(sa)) != 0) {
+    if (::bind(
+#if defined(_WIN32)
+            static_cast<SOCKET>(fd),
+#else
+            static_cast<int>(fd),
+#endif
+            reinterpret_cast<sockaddr*>(&sa), sizeof(sa)) != 0) {
         int e = obn::os::last_socket_error();
         obn::os::close_socket(fd);
         return e ? e : -1;
     }
-    if (::listen(static_cast<int>(fd), 8) != 0) {
+    if (::listen(
+#if defined(_WIN32)
+            static_cast<SOCKET>(fd),
+#else
+            static_cast<int>(fd),
+#endif
+            8) != 0) {
         int e = obn::os::last_socket_error();
         obn::os::close_socket(fd);
         return e ? e : -1;
@@ -223,7 +241,13 @@ int Server::start()
 #else
     socklen_t sl = sizeof(sa);
 #endif
-    if (::getsockname(static_cast<int>(fd), reinterpret_cast<sockaddr*>(&sa), &sl) != 0) {
+    if (::getsockname(
+#if defined(_WIN32)
+            static_cast<SOCKET>(fd),
+#else
+            static_cast<int>(fd),
+#endif
+            reinterpret_cast<sockaddr*>(&sa), &sl) != 0) {
         int e = obn::os::last_socket_error();
         obn::os::close_socket(fd);
         return e ? e : -1;
@@ -258,8 +282,13 @@ void Server::accept_loop()
         socklen_t cl = sizeof(ca);
 #endif
         socket_t c = static_cast<socket_t>(
-            ::accept(static_cast<int>(listen_fd_),
-                     reinterpret_cast<sockaddr*>(&ca), &cl));
+            ::accept(
+#if defined(_WIN32)
+                static_cast<SOCKET>(listen_fd_),
+#else
+                static_cast<int>(listen_fd_),
+#endif
+                reinterpret_cast<sockaddr*>(&ca), &cl));
         if (!obn::os::socket_valid(c)) {
             if (!running_.load()) break;
             if (obn::os::last_socket_error() == EINTR) continue;
@@ -275,8 +304,14 @@ void Server::accept_loop()
             // might send (RST-on-close otherwise eats the last segments).
             // SO_LINGER as a safety net caps the wait at 2s per connection.
             linger lo{1, 2};
-            ::setsockopt(static_cast<int>(c), SOL_SOCKET, SO_LINGER,
-                         reinterpret_cast<const char*>(&lo), sizeof(lo));
+            ::setsockopt(
+#if defined(_WIN32)
+                static_cast<SOCKET>(c),
+#else
+                static_cast<int>(c),
+#endif
+                SOL_SOCKET, SO_LINGER,
+                reinterpret_cast<const char*>(&lo), sizeof(lo));
 #if defined(_WIN32)
             ::shutdown(static_cast<SOCKET>(c), SD_SEND);
             DWORD tv = 2000;  // ms on Winsock

@@ -214,14 +214,26 @@ bool Discovery::start(int port, OnMessage cb)
     // Winsock's setsockopt takes the option blob as `const char*`; POSIX
     // takes `const void*`. Both reach the same kernel path; cast through char*
     // to satisfy MSVC.
-    if (::setsockopt(static_cast<int>(fd), SOL_SOCKET, SO_REUSEADDR,
-                     reinterpret_cast<const char*>(&yes), sizeof(yes)) < 0) {
+    if (::setsockopt(
+#if defined(_WIN32)
+            static_cast<SOCKET>(fd),
+#else
+            static_cast<int>(fd),
+#endif
+            SOL_SOCKET, SO_REUSEADDR,
+            reinterpret_cast<const char*>(&yes), sizeof(yes)) < 0) {
         OBN_WARN("ssdp: SO_REUSEADDR failed: %s", std::strerror(obn::os::last_socket_error()));
     }
     // Required on Linux to receive packets destined for 255.255.255.255 on
     // sockets bound to INADDR_ANY. Same flag exists on Winsock.
-    if (::setsockopt(static_cast<int>(fd), SOL_SOCKET, SO_BROADCAST,
-                     reinterpret_cast<const char*>(&yes), sizeof(yes)) < 0) {
+    if (::setsockopt(
+#if defined(_WIN32)
+            static_cast<SOCKET>(fd),
+#else
+            static_cast<int>(fd),
+#endif
+            SOL_SOCKET, SO_BROADCAST,
+            reinterpret_cast<const char*>(&yes), sizeof(yes)) < 0) {
         OBN_WARN("ssdp: SO_BROADCAST failed: %s", std::strerror(obn::os::last_socket_error()));
     }
 
@@ -229,7 +241,13 @@ bool Discovery::start(int port, OnMessage cb)
     addr.sin_family      = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     addr.sin_port        = htons(static_cast<uint16_t>(port));
-    if (::bind(static_cast<int>(fd), reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
+    if (::bind(
+#if defined(_WIN32)
+            static_cast<SOCKET>(fd),
+#else
+            static_cast<int>(fd),
+#endif
+            reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
         OBN_ERROR("ssdp: bind(:%d) failed: %s (another SSDP listener running?)",
                   port, std::strerror(obn::os::last_socket_error()));
         obn::os::close_socket(fd);
@@ -241,8 +259,14 @@ bool Discovery::start(int port, OnMessage cb)
     ip_mreq mreq{};
     mreq.imr_multiaddr.s_addr = ::inet_addr("239.255.255.250");
     mreq.imr_interface.s_addr = htonl(INADDR_ANY);
-    if (::setsockopt(static_cast<int>(fd), IPPROTO_IP, IP_ADD_MEMBERSHIP,
-                     reinterpret_cast<const char*>(&mreq), sizeof(mreq)) < 0) {
+    if (::setsockopt(
+#if defined(_WIN32)
+            static_cast<SOCKET>(fd),
+#else
+            static_cast<int>(fd),
+#endif
+            IPPROTO_IP, IP_ADD_MEMBERSHIP,
+            reinterpret_cast<const char*>(&mreq), sizeof(mreq)) < 0) {
         OBN_DEBUG("ssdp: IP_ADD_MEMBERSHIP 239.255.255.250 failed (ignored): %s",
                   std::strerror(obn::os::last_socket_error()));
     }
